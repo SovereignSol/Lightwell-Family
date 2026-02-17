@@ -1,0 +1,11 @@
+body { font-family: system-ui, Arial; margin: 0; background: #0b1220; color: #e5e7eb; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
+input, button { padding: 10px; border-radius: 10px; border: 1px solid #2b3447; background: #0f172a; color: #e5e7eb; }
+button { cursor: pointer; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row input { flex: 1; }
+.hidden { display: none; }
+.card { border: 1px solid #2b3447; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #0f172a; }
+.muted { opacity: 0.8; font-size: 12px; }
+li { list-style: none; margin: 8px 0; border: 1px solid #2b3447; border-radius: 12px; padding: 10px; display: flex; gap: 8px; align-items: center; }
+li .name { flex: 1; }
