@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  * Fill these in
  */
 const SUPABASE_URL = "https://kejsrvqvmgahttmrqgfh.supabase.co";
-const SUPABASE_ANON_KEY = "PASTE_YOUR_sb_publishable_KEY_HERE";
+const SUPABASE_ANON_KEY = "sb_publishable_8Z8ElJBdfA3PWCiyleODYw_0CaFRRw6";
 
 /**
  * Your VAPID keys
