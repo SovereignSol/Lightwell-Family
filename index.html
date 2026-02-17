@@ -9,14 +9,15 @@
     <title>Family Hub</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
+
   <body>
     <div class="wrap">
       <h1>Family Hub</h1>
 
       <section id="auth">
         <h2>Login</h2>
-        <input id="email" placeholder="Email" />
-        <input id="password" placeholder="Password" type="password" />
+        <input id="email" placeholder="Email" autocomplete="email" />
+        <input id="password" placeholder="Password" type="password" autocomplete="current-password" />
         <div class="row">
           <button id="signIn">Sign in</button>
           <button id="signUp">Sign up</button>
@@ -26,6 +27,7 @@
 
       <section id="household" class="hidden">
         <h2>Household</h2>
+
         <div class="card">
           <strong>Create</strong>
           <input id="householdName" placeholder="Household name" />
@@ -38,8 +40,20 @@
           <button id="joinHousehold">Join household</button>
         </div>
 
-        <p class="muted">Household ID: <span id="householdId"></span></p>
-        <button id="signOut">Sign out</button>
+        <div class="card">
+          <strong>Notifications</strong>
+          <button id="enablePush">Enable Push Notifications</button>
+          <p id="pushStatus" class="muted"></p>
+          <p class="muted">
+            iPhone: open in Safari, then Share, Add to Home Screen, then enable push from the installed app.
+          </p>
+        </div>
+
+        <p class="muted">Household ID: <span id="householdId">(not set)</span></p>
+
+        <div class="row">
+          <button id="signOut">Sign out</button>
+        </div>
       </section>
 
       <section id="grocery" class="hidden">
@@ -49,6 +63,7 @@
           <button id="addItem">Add</button>
         </div>
         <ul id="items"></ul>
+        <p class="muted">If live updates do not appear, enable table public.grocery_items in supabase_realtime publication.</p>
       </section>
     </div>
 
