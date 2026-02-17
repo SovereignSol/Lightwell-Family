@@ -7,5 +7,6 @@ button { cursor: pointer; }
 .hidden { display: none; }
 .card { border: 1px solid #2b3447; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #0f172a; }
 .muted { opacity: 0.8; font-size: 12px; }
+ul { padding: 0; margin: 0; }
 li { list-style: none; margin: 8px 0; border: 1px solid #2b3447; border-radius: 12px; padding: 10px; display: flex; gap: 8px; align-items: center; }
 li .name { flex: 1; }
