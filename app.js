@@ -1,7 +1,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * Fill these in
+ */
 const SUPABASE_URL = "https://kejsrvqvmgahttmrqgfh.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_8Z8ElJBdfA3PWCiyleODYw_0CaFRRw6";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_sb_publishable_KEY_HERE";
+
+/**
+ * Your VAPID keys
+ * Public key is safe in GitHub.
+ * Private key must ONLY be stored in Supabase Edge Function secrets, never in GitHub.
+ */
+const VAPID_PUBLIC_KEY = "BNpaIsk86xSDCMq92NP2yhlKNcCOSKVUjyuFvsQaebJe3efOxR2AMXBvTZpDzAa4hE5QVaVYFNpubh7Sh4iFvY4";
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // UI helpers
@@ -11,6 +22,7 @@ const householdSection = $("household");
 const grocerySection = $("grocery");
 const authMsg = $("authMsg");
 const itemsEl = $("items");
+const pushStatus = $("pushStatus");
 
 let householdId = "";
 let groceryChannel = null;
@@ -85,6 +97,7 @@ async function startRealtime() {
 async function setAuthedUI() {
   const { data } = await supabase.auth.getSession();
   const isAuthed = !!data.session?.user;
+
   show(authSection, !isAuthed);
   show(householdSection, isAuthed);
   show(grocerySection, isAuthed && !!householdId);
@@ -113,16 +126,22 @@ $("signUp").addEventListener("click", async () => {
 
 $("signOut").addEventListener("click", async () => {
   householdId = "";
+  if (groceryChannel) {
+    await supabase.removeChannel(groceryChannel);
+    groceryChannel = null;
+  }
   await supabase.auth.signOut();
   await setAuthedUI();
 });
 
-// Household RPC (these require you created create_household/join_household earlier)
+// Household RPC
 $("createHousehold").addEventListener("click", async () => {
   const name = $("householdName").value.trim();
   if (!name) return;
+
   const { data, error } = await supabase.rpc("create_household", { p_name: name });
   if (error) return alert(error.message);
+
   householdId = data;
   await setAuthedUI();
   await loadItems();
@@ -132,8 +151,10 @@ $("createHousehold").addEventListener("click", async () => {
 $("joinHousehold").addEventListener("click", async () => {
   const code = $("joinCode").value.trim();
   if (!code) return;
+
   const { data, error } = await supabase.rpc("join_household", { p_join_code: code });
   if (error) return alert(error.message);
+
   householdId = data;
   await setAuthedUI();
   await loadItems();
@@ -164,12 +185,88 @@ $("addItem").addEventListener("click", async () => {
   $("newItem").value = "";
 });
 
-// Register service worker (PWA)
+// Service worker registration (PWA + push)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
-    await navigator.serviceWorker.register("./sw.js");
+    try {
+      await navigator.serviceWorker.register("./sw.js");
+    } catch {
+      // ignore
+    }
   });
 }
+
+// Push subscription helpers
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function ensureServiceWorkerReady() {
+  const reg = await navigator.serviceWorker.register("./sw.js");
+  await navigator.serviceWorker.ready;
+  return reg;
+}
+
+async function enablePushForHousehold(hhId) {
+  pushStatus.textContent = "";
+
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    throw new Error("Push is not supported in this browser.");
+  }
+
+  // Must be a user gesture (click)
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error("Notifications permission not granted.");
+
+  const reg = await ensureServiceWorkerReady();
+
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  });
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) throw new Error("Not signed in.");
+
+  const json = sub.toJSON();
+  const endpoint = json.endpoint;
+  const p256dh = json.keys?.p256dh;
+  const auth = json.keys?.auth;
+
+  if (!endpoint || !p256dh || !auth) throw new Error("Subscription keys missing.");
+
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    {
+      household_id: hhId,
+      user_id: userId,
+      endpoint,
+      p256dh,
+      auth,
+      user_agent: navigator.userAgent,
+      last_seen_at: new Date().toISOString()
+    },
+    { onConflict: "user_id,endpoint" }
+  );
+
+  if (error) throw new Error(error.message);
+
+  pushStatus.textContent = "Push enabled on this device.";
+}
+
+$("enablePush").addEventListener("click", async () => {
+  try {
+    if (!householdId) return alert("Join or create a household first.");
+    await enablePushForHousehold(householdId);
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+});
 
 // Keep UI synced with auth
 supabase.auth.onAuthStateChange(async () => {
