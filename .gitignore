@@ -1,0 +1,10 @@
+# secrets
+vapid-keys.txt
+*.secret.txt
+
+# misc
+.DS_Store
+
+# build outputs (if you add tooling later)
+dist
+node_modules
