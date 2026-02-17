@@ -1,44 +1,65 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
- * Fill these in
+ * Supabase (browser-safe)
  */
 const SUPABASE_URL = "https://kejsrvqvmgahttmrqgfh.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_8Z8ElJBdfA3PWCiyleODYw_0CaFRRw6";
 
 /**
- * Your VAPID keys
- * Public key is safe in GitHub.
- * Private key must ONLY be stored in Supabase Edge Function secrets, never in GitHub.
+ * Web Push (VAPID)
  */
-const VAPID_PUBLIC_KEY = "BNpaIsk86xSDCMq92NP2yhlKNcCOSKVUjyuFvsQaebJe3efOxR2AMXBvTZpDzAa4hE5QVaVYFNpubh7Sh4iFvY4";
+const VAPID_PUBLIC_KEY =
+  "BNpaIsk86xSDCMq92NP2yhlKNcCOSKVUjyuFvsQaebJe3efOxR2AMXBvTZpDzAa4hE5QVaVYFNpubh7Sh4iFvY4";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // UI helpers
 const $ = (id) => document.getElementById(id);
-const authSection = $("auth");
-const householdSection = $("household");
-const grocerySection = $("grocery");
-const authMsg = $("authMsg");
-const itemsEl = $("items");
-const pushStatus = $("pushStatus");
+
+function safeText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text ?? "";
+}
+
+function show(id, yes) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.toggle("hidden", !yes);
+}
 
 let householdId = "";
 let groceryChannel = null;
 
-function show(el, yes) {
-  el.classList.toggle("hidden", !yes);
+async function apiKeySanityCheck() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: SUPABASE_ANON_KEY },
+    });
+
+    const body = await res.text();
+    console.log("API key check status:", res.status);
+    if (!res.ok) {
+      safeText("authMsg", `API key check failed: ${res.status} ${body}`);
+      return;
+    }
+    safeText("authMsg", "API key check: OK (auth endpoint reachable).");
+  } catch (e) {
+    safeText("authMsg", `API key check error: ${e?.message ?? String(e)}`);
+  }
 }
 
 function renderItems(items) {
+  const itemsEl = $("items");
+  if (!itemsEl) return;
+
   itemsEl.innerHTML = "";
   for (const it of items) {
     const li = document.createElement("li");
 
     const cb = document.createElement("input");
     cb.type = "checkbox";
-    cb.checked = it.checked;
+    cb.checked = !!it.checked;
     cb.addEventListener("change", async () => {
       const { error } = await supabase.from("grocery_items").update({ checked: !it.checked }).eq("id", it.id);
       if (error) alert(error.message);
@@ -47,6 +68,7 @@ function renderItems(items) {
     const name = document.createElement("div");
     name.className = "name";
     name.textContent = it.name;
+
     if (it.checked) name.style.textDecoration = "line-through";
 
     const del = document.createElement("button");
@@ -64,6 +86,8 @@ function renderItems(items) {
 }
 
 async function loadItems() {
+  if (!householdId) return;
+
   const { data, error } = await supabase
     .from("grocery_items")
     .select("id, name, checked, sort_order, updated_at")
@@ -72,11 +96,17 @@ async function loadItems() {
     .order("sort_order", { ascending: true })
     .order("updated_at", { ascending: false });
 
-  if (error) return alert(error.message);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
   renderItems(data ?? []);
 }
 
 async function startRealtime() {
+  if (!householdId) return;
+
   if (groceryChannel) {
     await supabase.removeChannel(groceryChannel);
     groceryChannel = null;
@@ -98,33 +128,64 @@ async function setAuthedUI() {
   const { data } = await supabase.auth.getSession();
   const isAuthed = !!data.session?.user;
 
-  show(authSection, !isAuthed);
-  show(householdSection, isAuthed);
-  show(grocerySection, isAuthed && !!householdId);
+  show("auth", !isAuthed);
+  show("household", isAuthed);
+  show("grocery", isAuthed && !!householdId);
 
-  $("householdId").textContent = householdId || "(not set)";
+  safeText("householdId", householdId || "(not set)");
+  console.log("setAuthedUI isAuthed:", isAuthed);
 }
 
-// Auth handlers
-$("signIn").addEventListener("click", async () => {
-  authMsg.textContent = "";
-  const email = $("email").value.trim();
-  const password = $("password").value;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) authMsg.textContent = error.message;
+async function signIn() {
+  safeText("authMsg", "");
+  const email = $("email")?.value?.trim() ?? "";
+  const password = $("password")?.value ?? "";
+
+  if (!email || !password) {
+    safeText("authMsg", "Enter email and password.");
+    return;
+  }
+
+  console.log("Attempting sign in...");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    console.error("Sign in error:", error);
+    safeText("authMsg", `Sign in failed: ${error.message}`);
+    alert(error.message);
+    return;
+  }
+
+  console.log("Sign in success:", data?.session?.user?.id);
+  safeText("authMsg", "Signed in.");
   await setAuthedUI();
-});
+}
 
-$("signUp").addEventListener("click", async () => {
-  authMsg.textContent = "";
-  const email = $("email").value.trim();
-  const password = $("password").value;
-  const { error } = await supabase.auth.signUp({ email, password });
-  if (error) authMsg.textContent = error.message;
-  else authMsg.textContent = "Account created. Check email if confirmations are enabled.";
-});
+async function signUp() {
+  safeText("authMsg", "");
+  const email = $("email")?.value?.trim() ?? "";
+  const password = $("password")?.value ?? "";
 
-$("signOut").addEventListener("click", async () => {
+  if (!email || !password) {
+    safeText("authMsg", "Enter email and password.");
+    return;
+  }
+
+  console.log("Attempting sign up...");
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    console.error("Sign up error:", error);
+    safeText("authMsg", `Sign up failed: ${error.message}`);
+    alert(error.message);
+    return;
+  }
+
+  console.log("Sign up response:", data);
+  safeText("authMsg", "Sign up submitted. If email confirmation is on, check your inbox.");
+}
+
+async function signOut() {
   householdId = "";
   if (groceryChannel) {
     await supabase.removeChannel(groceryChannel);
@@ -132,38 +193,42 @@ $("signOut").addEventListener("click", async () => {
   }
   await supabase.auth.signOut();
   await setAuthedUI();
-});
+}
 
-// Household RPC
-$("createHousehold").addEventListener("click", async () => {
-  const name = $("householdName").value.trim();
-  if (!name) return;
+async function createHousehold() {
+  const name = $("householdName")?.value?.trim() ?? "";
+  if (!name) return alert("Enter a household name.");
 
   const { data, error } = await supabase.rpc("create_household", { p_name: name });
-  if (error) return alert(error.message);
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
   householdId = data;
   await setAuthedUI();
   await loadItems();
   await startRealtime();
-});
+}
 
-$("joinHousehold").addEventListener("click", async () => {
-  const code = $("joinCode").value.trim();
-  if (!code) return;
+async function joinHousehold() {
+  const code = $("joinCode")?.value?.trim() ?? "";
+  if (!code) return alert("Enter the join code.");
 
   const { data, error } = await supabase.rpc("join_household", { p_join_code: code });
-  if (error) return alert(error.message);
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
   householdId = data;
   await setAuthedUI();
   await loadItems();
   await startRealtime();
-});
+}
 
-// Grocery add
-$("addItem").addEventListener("click", async () => {
-  const name = $("newItem").value.trim();
+async function addItem() {
+  const name = $("newItem")?.value?.trim() ?? "";
   if (!name || !householdId) return;
 
   const { data: maxRow } = await supabase
@@ -178,25 +243,14 @@ $("addItem").addEventListener("click", async () => {
   const { error } = await supabase.from("grocery_items").insert({
     household_id: householdId,
     name,
-    sort_order: nextSort
+    sort_order: nextSort,
   });
 
   if (error) alert(error.message);
   $("newItem").value = "";
-});
-
-// Service worker registration (PWA + push)
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
-    try {
-      await navigator.serviceWorker.register("./sw.js");
-    } catch {
-      // ignore
-    }
-  });
 }
 
-// Push subscription helpers
+// Push subscription helpers (kept, but not required for sign-in debugging)
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -213,13 +267,12 @@ async function ensureServiceWorkerReady() {
 }
 
 async function enablePushForHousehold(hhId) {
-  pushStatus.textContent = "";
+  safeText("pushStatus", "");
 
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     throw new Error("Push is not supported in this browser.");
   }
 
-  // Must be a user gesture (click)
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Notifications permission not granted.");
 
@@ -227,7 +280,7 @@ async function enablePushForHousehold(hhId) {
 
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   });
 
   const { data: sessionData } = await supabase.auth.getSession();
@@ -249,29 +302,50 @@ async function enablePushForHousehold(hhId) {
       p256dh,
       auth,
       user_agent: navigator.userAgent,
-      last_seen_at: new Date().toISOString()
+      last_seen_at: new Date().toISOString(),
     },
     { onConflict: "user_id,endpoint" }
   );
 
   if (error) throw new Error(error.message);
 
-  pushStatus.textContent = "Push enabled on this device.";
+  safeText("pushStatus", "Push enabled on this device.");
 }
 
-$("enablePush").addEventListener("click", async () => {
+// Wire buttons
+$("signIn")?.addEventListener("click", () => void signIn());
+$("signUp")?.addEventListener("click", () => void signUp());
+$("signOut")?.addEventListener("click", () => void signOut());
+$("createHousehold")?.addEventListener("click", () => void createHousehold());
+$("joinHousehold")?.addEventListener("click", () => void joinHousehold());
+$("addItem")?.addEventListener("click", () => void addItem());
+
+$("enablePush")?.addEventListener("click", async () => {
   try {
     if (!householdId) return alert("Join or create a household first.");
     await enablePushForHousehold(householdId);
   } catch (e) {
-    alert(e.message || String(e));
+    alert(e?.message ?? String(e));
   }
 });
 
-// Keep UI synced with auth
-supabase.auth.onAuthStateChange(async () => {
-  await setAuthedUI();
+// Service worker registration (PWA + push)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      await navigator.serviceWorker.register("./sw.js");
+    } catch {
+      // ignore
+    }
+  });
+}
+
+// Listen for auth changes
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log("Auth state change:", event, session?.user?.id ?? null);
+  void setAuthedUI();
 });
 
-// Initial
+// Initial checks
+await apiKeySanityCheck();
 await setAuthedUI();
