@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Family Hub</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Family Hub</h1>
+
+      <section id="auth">
+        <h2>Login</h2>
+        <input id="email" placeholder="Email" />
+        <input id="password" placeholder="Password" type="password" />
+        <div class="row">
+          <button id="signIn">Sign in</button>
+          <button id="signUp">Sign up</button>
+        </div>
+        <p id="authMsg" class="muted"></p>
+      </section>
+
+      <section id="household" class="hidden">
+        <h2>Household</h2>
+        <div class="card">
+          <strong>Create</strong>
+          <input id="householdName" placeholder="Household name" />
+          <button id="createHousehold">Create household</button>
+        </div>
+
+        <div class="card">
+          <strong>Join</strong>
+          <input id="joinCode" placeholder="Join code" />
+          <button id="joinHousehold">Join household</button>
+        </div>
+
+        <p class="muted">Household ID: <span id="householdId"></span></p>
+        <button id="signOut">Sign out</button>
+      </section>
+
+      <section id="grocery" class="hidden">
+        <h2>Grocery List (live)</h2>
+        <div class="row">
+          <input id="newItem" placeholder="Add item..." />
+          <button id="addItem">Add</button>
+        </div>
+        <ul id="items"></ul>
+      </section>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
