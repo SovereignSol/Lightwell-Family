@@ -31,6 +31,7 @@
             <div>
               <div class="muted">Household</div>
               <div><strong id="householdId">(not set)</strong></div>
+              <div class="muted">Join code: <strong id="joinCodeDisplay">-</strong></div>
               <div class="muted">Role: <span id="roleText">member</span></div>
             </div>
             <button id="signOut">Sign out</button>
@@ -42,8 +43,8 @@
           </div>
         </div>
 
-        <section id="household" class="card">
-          <h2>Household</h2>
+        <section id="householdSetup" class="card">
+          <h2>Household setup</h2>
 
           <div class="card">
             <strong>Create</strong>
@@ -56,6 +57,10 @@
             <input id="joinCode" placeholder="Join code" />
             <button id="joinHousehold">Join household</button>
           </div>
+        </section>
+
+        <section id="householdLocked" class="card hidden">
+          <h2>Household</h2>
 
           <div class="card">
             <strong>Notifications</strong>
@@ -64,6 +69,25 @@
             <p class="muted">
               iPhone: open in Safari, Share, Add to Home Screen, then enable push from the installed app.
             </p>
+          </div>
+
+          <div class="card hidden" id="ownerPanel">
+            <h3>Owner controls</h3>
+            <div class="muted">Promote or demote members</div>
+            <div class="row">
+              <select id="memberSelect"></select>
+              <select id="roleSelect">
+                <option value="member">member</option>
+                <option value="owner">owner</option>
+              </select>
+              <button id="setRoleBtn">Set role</button>
+            </div>
+            <p id="ownerMsg" class="muted"></p>
+          </div>
+
+          <div class="card">
+            <button id="forgetHousehold">Switch household (forget on this device)</button>
+            <p class="muted">This only clears your current household pointer, it does not delete the household.</p>
           </div>
         </section>
 
@@ -82,7 +106,6 @@
           <div class="card">
             <div class="muted">My allowance balance</div>
             <div style="font-size:20px;"><strong id="myAllowance">$0.00</strong></div>
-            <p class="muted">Approving a purchase deducts (cost + shipping) from the requester’s allowance automatically.</p>
           </div>
 
           <div class="card">
@@ -104,10 +127,7 @@
 
           <div class="card">
             <h3>Requests (live)</h3>
-            <div class="row" style="justify-content: space-between;">
-              <span class="muted">Owner can Approve/Deny/Wishlist</span>
-              <button id="refreshPR">Refresh</button>
-            </div>
+            <button id="refreshPR">Refresh</button>
             <ul id="prList"></ul>
           </div>
 
@@ -145,9 +165,6 @@
                 <button id="uploadStickerPhoto">Upload photo to selected sticker</button>
               </div>
 
-              <p class="muted">
-                Sticker photos are stored in Supabase Storage bucket: <strong>stickers</strong>.
-              </p>
               <p id="stickerMgrMsg" class="muted"></p>
             </div>
           </div>
@@ -160,6 +177,6 @@
       </section>
     </div>
 
-    <script type="module" src="./app.js?v=30"></script>
+    <script type="module" src="./app.js?v=40"></script>
   </body>
 </html>
